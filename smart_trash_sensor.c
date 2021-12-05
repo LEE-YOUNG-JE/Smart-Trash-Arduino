@@ -188,20 +188,16 @@ if (doConnect == true) {
   }
     
   while (connected) {  
-    val = digitalRead(Button_GPIO); //버튼의 입력값 저장
-    delay(100);       //버튼 입력 감지를 위한 시간 여유
-    if((val == HIGH) && (old_val == LOW)){  //버튼이 눌렸고, 이전값이 LOW일 때(즉, 버튼이 눌렸을 때)
-      state = 1 - state;      //state값 토글
+    val = !digitalRead(_D0_BUTTON_GPIO); //버튼의 입력값 저장
+    delay(10);       //버튼 입력 감지를 위한 시간 여유
+    if((val == HIGH)){  //버튼이 눌렸고, 이전값이 LOW일 때(즉, 버튼이 눌렸을 때)
       Serial.println("pushed");
       delay(100);
     }
-    old_val = val;    //old_val에 val값 저장(버튼 눌림 감지는 매우 빠르게 일어나기 때문에 이 값은 거의 LOW로 항상 저장된다.)
-    if(state == 1){ //state 1상태일 때(Blink LED가 꺼져있을 때)
       pRemoteCharacteristic->writeValue("1"); //서버의 charactersitic값을 1로 변경(LED ON)
-    }
-    else{   //state 0상태일 때(Blink LED가 켜져있을 때)
-      pRemoteCharacteristic->writeValue("0");    //서버의 charactersitic값을 0으로 변경(LED OFF)
-    }
+      delay(1000); //여기는 반복되는지 확인용도
+      pRemoteCharacteristic->writeValue("0"); //반복되는지 확인용도
+      break;
   }  
   button_status = 0;
  }
