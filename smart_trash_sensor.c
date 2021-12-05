@@ -1,3 +1,39 @@
+/*----------------------------------------*/
+#include "BLEDevice.h"
+#include "BLEUtils.h"        //사용할 헤더파일 선언
+#define Button_GPIO 2       //I/O 큐브(버튼 모듈)에 연결한 디지털 핀
+static BLEUUID serviceUUID("28abcba1-7164-4c84-95f0-880f4a52b3c7");  //연결하고자 할 server의service UUID
+
+static BLEUUID    charUUID("07ff6a94-bc77-49c7-b8f6-33bcee6db341"); //연결하고자 할 server의 characteristic UUID
+
+static BLEAddress *pServerAddress;
+static boolean doConnect = false;
+static boolean connected = false;
+static BLERemoteCharacteristic* pRemoteCharacteristic;
+static BLECharacteristic *pCharacteristic;
+BLEClient * pClient;
+int val = 0;
+int old_val = 0;
+int state = 0;            //사용할 변수 선언
+
+bool connectToServer(BLEAddress pAddress) { //서버에 연결할 때 사용할 함수
+    pClient  = BLEDevice::createClient();   //client 생성
+    pClient->connect(pAddress);     //pAddress주소에 클라이언트 연결
+    BLERemoteService* pRemoteService = pClient->getService(serviceUUID); //서버의 service UUID 받아옴
+    pRemoteCharacteristic = pRemoteService->getCharacteristic(charUUID); //서버의 characteristic UUID 받아옴
+}
+
+class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks { //advertising된 신호를 감지했을 때 사용하기 위한 클래스
+ void onResult(BLEAdvertisedDevice advertisedDevice) {
+    if(advertisedDevice.haveServiceUUID()&& advertisedDevice.getServiceUUID().equals(serviceUUID)) { //advertised된 신호가 서비스를 가지고 있으며 찾고자 하는 service UUID와 같은 신호일 때
+      advertisedDevice.getScan()->stop();   //advertise하는 신호의 스캔 중지
+      pServerAddress = new BLEAddress(advertisedDevice.getAddress()); //서버 주소 받아옴
+      doConnect = true;       //연결됨을 나타내는 변수 doConnect 토글
+    } 
+ } 
+}; 
+/*----------------------------------------------*/
+
 
 #include <Adafruit_GFX.h> 
 #include <Adafruit_IS31FL3731.h>
