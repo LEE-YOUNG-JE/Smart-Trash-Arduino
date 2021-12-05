@@ -1,7 +1,8 @@
-/*----------------------------------------*/
+/*----------------BLE client-------*/
 #include "BLEDevice.h"
 #include "BLEUtils.h"        //사용할 헤더파일 선언
 #define Button_GPIO 2       //I/O 큐브(버튼 모듈)에 연결한 디지털 핀
+
 static BLEUUID serviceUUID("28abcba1-7164-4c84-95f0-880f4a52b3c7");  //연결하고자 할 server의service UUID
 
 static BLEUUID    charUUID("07ff6a94-bc77-49c7-b8f6-33bcee6db341"); //연결하고자 할 server의 characteristic UUID
@@ -32,9 +33,7 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks { //adver
     } 
  } 
 }; 
-/*----------------------------------------------*/
-
-
+/*------------------------------*/
 #include <Adafruit_GFX.h> 
 #include <Adafruit_IS31FL3731.h>
 
@@ -120,6 +119,16 @@ void setup() {
   matrix.begin();
 /*---------------------------------------------------*/ 
 
+/*-----------------ble client--------------------*/
+Serial.begin(9600);
+  pinMode(Button_GPIO, INPUT);      //2번 핀을 INPUT핀으로 설정
+    
+  BLEDevice::init("");              //client 이름 지정
+  BLEScan* pBLEScan = BLEDevice::getScan();   //스캔 시작
+  pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks()); //스캔된 신호의 callback 
+  pBLEScan->setActiveScan(true);    //scan을 Activescan으로 설정
+  pBLEScan->start(100);     //100초동안 스캔 시작
+/*---------------------------------------------*/
 }
 void loop() {
   /*---------------------터치센서를 이용하여 led 메트릭스 제어------------------------------*/
@@ -166,6 +175,37 @@ void loop() {
  /*---------------------------------------------------*/
  }// button_status == 1
 
- 
+ /*--------------------------ble client-------------*/
+ if(!digitalRead(_D0_BUTTON_GPIO) && button_status == 1){
+if (doConnect == true) {
+    if (connectToServer(*pServerAddress)) {
+      Serial.println("We are now connected to the BLE Server.");
+      connected = true;   //서버와 연결 성공했을 때 connected 변수 토글
+    } else {
+      Serial.println("We have failed to connect to the server");
+    }
+    doConnect = false;
+  }
+    
+  while (connected) {  
+    val = digitalRead(Button_GPIO); //버튼의 입력값 저장
+    delay(100);       //버튼 입력 감지를 위한 시간 여유
+    if((val == HIGH) && (old_val == LOW)){  //버튼이 눌렸고, 이전값이 LOW일 때(즉, 버튼이 눌렸을 때)
+      state = 1 - state;      //state값 토글
+      Serial.println("pushed");
+      delay(100);
+    }
+    old_val = val;    //old_val에 val값 저장(버튼 눌림 감지는 매우 빠르게 일어나기 때문에 이 값은 거의 LOW로 항상 저장된다.)
+    if(state == 1){ //state 1상태일 때(Blink LED가 꺼져있을 때)
+      pRemoteCharacteristic->writeValue("1"); //서버의 charactersitic값을 1로 변경(LED ON)
+    }
+    else{   //state 0상태일 때(Blink LED가 켜져있을 때)
+      pRemoteCharacteristic->writeValue("0");    //서버의 charactersitic값을 0으로 변경(LED OFF)
+    }
+  }  
+  button_status = 0;
+ }
+
+ /*----------------------------------------*/
 delay(500);
 }
