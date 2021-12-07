@@ -26,6 +26,8 @@ int R=0;
 int light=0;  //조도 값
 int sel_trash=0;
 int PGC[3] = {'P', 'G', 'C'};
+char choose_trash = '0';
+char web_trash = '0';
 int button_status=0;
 int val = 0;
 int old_val = 0;
@@ -87,15 +89,15 @@ static const uint8_t PROGMEM initial[5][9]={
   B00011000,
   B00000000},     //^^
  
- {B11111111,
-  B01111110,
-  B10111101,
-  B11011011,
-  B11111111,
-  B11111111,
-  B11000011,
-  B10111101,
-  B11111111},   //;(
+ {B00000000,
+  B10000001,
+  B01000010,
+  B00100100,
+  B00000000,
+  B00000000,
+  B00111100,
+  B01000010,
+  B00000000},   //;(
   
   {B11111111,
   B10111101,
@@ -166,9 +168,10 @@ delay(500);
      matrix.setCursor(1,1);
      matrix.drawBitmap(0,0,initial[0], 8,9, 128); //
  /*------------------sensor works------------------------22222222222222222222222222222222222---------------쓰레기 감지 안될때--*/
-    char io = Serial.read();
-    Serial.println(io);
-    if(PGC[sel_trash] == io){ //문법확인 분리수거 일치할때 *********
+    char temp = Serial.read();
+    if(temp == '0' || temp == '1' || temp =='P' || temp =='G' || temp =='C') web_trash = temp;
+    Serial.println(web_trash);
+    if(PGC[sel_trash] == web_trash){ //문법확인 분리수거 일치할때 *********
        digitalWrite(15, HIGH);
         if(analogRead(_A0_LIGHT_ADC_GPIO) < 500){ //쓰레기 감지 안되면
             digitalWrite(_D1_LED_GPIO, LOW);
@@ -177,7 +180,6 @@ delay(500);
             Serial.println(led_val);
             Serial.println("led old_val");
             Serial.println(led_old_val);
-            delay(1500);       //LED 입력 감지를 위한 시간 여유
             led_old_val = led_val;    //old_val에 val값 저장(버튼 눌림 감지는 매우 빠르게 일어나기 때문에 이 값은 거의 LOW로 항상 저장된다.)
         }
         else if(analogRead(_A0_LIGHT_ADC_GPIO) > 500){   //쓰레기 감지= led 켜짐//수정필요
@@ -188,7 +190,8 @@ delay(500);
                                플라스틱이 아닌게 들어왔다?-> 화난표시
         */    
             digitalWrite(_D1_LED_GPIO, HIGH);
-            delay(1500);
+            delay(800);
+            digitalWrite(_D1_LED_GPIO, LOW);
           /*--------------------new yj-----count trash-----------------------------*/
             led_val = digitalRead(_D1_LED_GPIO); //LED의 입력값 저장
             Serial.println("trash_led val");
@@ -210,20 +213,22 @@ delay(500);
                 Serial.println(pa);
                 Serial.println(ga);
                 Serial.println(ca);
-                button_status == 0; // 상태원상복구 -> p,g,c선택화면
+                button_status = 0; // 상태원상복구 -> p,g,c선택화면
                 
                 //Preprocessing();
             }
             led_old_val = led_val;    //old_val에 val값 저장(버튼 눌림 감지는 매우 빠르게 일어나기 때문에 이 값은 거의 LOW로 항상 저장된다.)
         }
+        web_trash = '0';
     }
-    /*else{ //분리수거 일치하지 않을때 부저울리고 표정 
+    else if(web_trash != '0' && web_trash != '1' && web_trash != NULL && web_trash != PGC[sel_trash]){ //분리수거 일치하지 않을때 부저울리고 표정 
       matrix.clear();
       matrix.setCursor(1,1);
       matrix.drawBitmap(0,0,initial[2], 8,9, 128); //화남
-    }*/
+      delay(1500);
+      web_trash = '0';
+    }
 }
 /*------------------------------------------------------111111111111111111111111111-------------------------------------button_status == 1 end*/
-
 delay(500);
 }
