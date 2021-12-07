@@ -1,37 +1,9 @@
-/*----------------BLE client-------*/
-#include "BLEDevice.h"
-#include "BLEUtils.h"        //사용할 헤더파일 선언
+
 #include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 #define Button_GPIO 2       //I/O 큐브(버튼 모듈)에 연결한 디지털 핀
-
-static BLEUUID serviceUUID("28abcba1-7164-4c84-95f0-880f4a52b3c7");  //연결하고자 할 server의service UUID
-
-static BLEUUID    charUUID("07ff6a94-bc77-49c7-b8f6-33bcee6db341"); //연결하고자 할 server의 characteristic UUID
-
-static BLEAddress *pServerAddress;
-static boolean doConnect = false;
-static boolean connected = false;
-static BLERemoteCharacteristic* pRemoteCharacteristic;
-static BLECharacteristic *pCharacteristic;
-BLEClient * pClient;
-
-
-bool connectToServer(BLEAddress pAddress) { //서버에 연결할 때 사용할 함수
-    pClient  = BLEDevice::createClient();   //client 생성
-    pClient->connect(pAddress);     //pAddress주소에 클라이언트 연결
-    BLERemoteService* pRemoteService = pClient->getService(serviceUUID); //서버의 service UUID 받아옴
-    pRemoteCharacteristic = pRemoteService->getCharacteristic(charUUID); //서버의 characteristic UUID 받아옴
-}
-
-class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks { //advertising된 신호를 감지했을 때 사용하기 위한 클래스
- void onResult(BLEAdvertisedDevice advertisedDevice) {
-    if(advertisedDevice.haveServiceUUID()&& advertisedDevice.getServiceUUID().equals(serviceUUID)) { //advertised된 신호가 서비스를 가지고 있으며 찾고자 하는 service UUID와 같은 신호일 때
-      advertisedDevice.getScan()->stop();   //advertise하는 신호의 스캔 중지
-      pServerAddress = new BLEAddress(advertisedDevice.getAddress()); //서버 주소 받아옴
-      doConnect = true;       //연결됨을 나타내는 변수 doConnect 토글
-    } 
- } 
-}; 
+#define HICLOUD_API_KEY "2c6edde6db100ad83a509a6cea13a75ef97c3826"
 /*------------------------------*/
 #include <Adafruit_GFX.h> 
 #include <Adafruit_IS31FL3731.h>
@@ -46,7 +18,50 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks { //adver
 #define plastic 0
 #define can 1
 #define glass 2
+/*-------------------------------------------wifi function---------------------------*/
+int pa = 0; //amount of plastic amount
+int ga = 0; //amount of glass
+int ca = 0; //amount of can 
+int R=0;
+int light=0;  //조도 값
+int sel_trash=0;
+int PGC[3] = {'P', 'G', 'C'};
+int button_status=0;
+int val = 0;
+int old_val = 0;
+int state = 0;    
+int led_val = 1;
+int led_old_val = 1;
+int led_state = 0;            //사용할 변수 선언
+const char* ssid = "Bong";
+const char* password = "";
+const char* mqtt_server = "202.30.11.115";
+/*---------------------------------------------------------------------------*/
+/*void Preprocessing(){
+  if(sel_trash == plastic) pa+=R;     //여기서 카운트도 바로 할 수 있을듯
+  else if(sel_trash == can) ca+=R ;   //R은 현재 찍히고 있는 쓰레기의 무게
+  else if(sel_trash == glass) ga+=R;
+  char CO2String[8];
+  char saving_energyString[8];
+  char EPRString[8];
+  float CO2 = 12;   //좀더 찾아봐야될듯
+  float saving_energy = 24;  // 좀더...
+  float EPR = (1000*0.807-(float)ca)*134*1.3425*(1.15*134*(1000*0.807-(float)ca)+1) +  
+              (1000*0.774-(float)pa)*172*1.3425*(1.15*172*(1000*0.774-(float)pa)+1) +
+              (1000*0.711-(float)ga)*36*1.3425*(1.15*36*(1000*0.711-(float)ga)+1);//1톤 기준
 
+
+
+
+
+  dtostrf(CO2, 1, 2, CO2String);
+  dtostrf(saving_energy, 1, 2, saving_energyString);
+  dtostrf(EPR, 1, 2, EPRString);
+  client.publish("/component/bb0977da-f857-4748-b03f-2e52b5c4dfda/pub", CO2String); //cow
+  client.publish("/component/9ea73427-a417-42d3-8c46-d1281b5770ff/pub", saving_energyString); //saving_energy
+  client.publish("/component/b7057685-2240-45e3-b9dc-96d55d29ab75/pub", EPRString); //EPR
+}*/
+/*-------------------------------------------wifi function end--------------------------*/
 
 
 Adafruit_IS31FL3731 matrix = Adafruit_IS31FL3731(); //led 메트릭스 제어
@@ -103,20 +118,10 @@ static const uint8_t PROGMEM initial[5][9]={
   B11111111}   //S
  };
  
-int R=0;
-int light=0;  //조도 값
-int sel_trash=0;
-int button_status=0;
-int val = 0;
-int old_val = 0;
-int state = 0;    
-int trash_count = 0;
-int led_val = 1;
-int led_old_val = 1;
-int led_state = 0;            //사용할 변수 선언
-char int_to_string[10];
+
 void setup() {
 /*------------------sensor setup---------------------*/  
+
   pinMode(_D0_BUTTON_GPIO, INPUT);  // BUTTON 입력설정
   pinMode(_D1_LED_GPIO, OUTPUT);    // LED 출력설정
   digitalWrite(_D1_LED_GPIO, LOW);
@@ -124,22 +129,15 @@ void setup() {
 
   matrix.begin();
 /*---------------------------------------------------*/ 
-
-/*-----------------ble client--------------------*/
-Serial.begin(9600);
-  pinMode(Button_GPIO, INPUT);      //2번 핀을 INPUT핀으로 설정
-    
-  BLEDevice::init("");              //client 이름 지정
-  BLEScan* pBLEScan = BLEDevice::getScan();   //스캔 시작
-  pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks()); //스캔된 신호의 callback 
-  pBLEScan->setActiveScan(true);    //scan을 Activescan으로 설정
-  pBLEScan->start(100);     //100초동안 스캔 시작
-/*---------------------------------------------*/
 }
 void loop() {
-  /*---------------------터치센서를 이용하여 led 메트릭스 제어------------------------------*/
+  char CO2String[8];
+  char saving_energyString[8];
+  char EPRString[8];
+  /*---------------------터치센서를 이용하여 led 메트릭스 제어-----------------------------------------------------------loop-------------*/
   matrix.setTextSize(1);
   matrix.setTextColor(100);
+  /*--------------------------------------------------------------------------------------------------------------button_status == 0*/
   if(button_status == 0){
   if(touchRead(_TOUCH_LEFT)<11 ){
      sel_trash++;
@@ -153,96 +151,74 @@ void loop() {
      matrix.setCursor(1,1);
      matrix.printf("%c", text[sel_trash]);
   }
- /*-----------------------------------------------------------------------------------*/
+ /*--------------------------------------------------------------------------------------------------------------button_status == 0 end*/
 delay(500);
- if(!digitalRead(_D0_BUTTON_GPIO) && button_status == 0) button_status = 1;  //상태 변화
- 
- if(button_status == 1) {
 
+/*--------------------------------------------------------------------------------------------------------------button_status == 0 && button눌렸을때*/
+ if(!digitalRead(_D0_BUTTON_GPIO) && button_status == 0) button_status = 1;  //상태 변화
+/*--------------------------------------------------------------------------------------------------------------button_status == 0 && button눌렸을때 end*/
+/*button status ==1일때 무표정코드 추가해야됨 elseif로 밑에추가*/
+/*---------------------------------------------------111111111111111111111111111111111---------------------------------------button_status == 1*/
+ if(button_status == 1) { //조건이 node-red webcam에서 인식한 것과 같을 때로 바꿔야됨, button_status ==1일때는 인식하기 직전이므로 무표정 아래 표정도 웃는 표정으로 바꾸고 무표정은 따로옮기기
      matrix.clear();
      matrix.setCursor(1,1);
-     matrix.drawBitmap(0,0,initial[0], 8,9, 128);
- /*------------------sensor works---------------------*/
- if(analogRead(_A0_LIGHT_ADC_GPIO) < 500){
- digitalWrite(_D1_LED_GPIO, LOW);
- led_val = digitalRead(_D1_LED_GPIO); //LED의 입력값 저장
-Serial.println("led val");
-Serial.println(led_val);
-Serial.println("led old_val");
-Serial.println(led_old_val);
-    delay(1500);       //LED 입력 감지를 위한 시간 여유
-    led_old_val = led_val;    //old_val에 val값 저장(버튼 눌림 감지는 매우 빠르게 일어나기 때문에 이 값은 거의 LOW로 항상 저장된다.)
- }      
- else if(analogRead(_A0_LIGHT_ADC_GPIO) > 500){   //쓰레기 감지  //수정필요
-    R = analogRead(_A1_R_GPIO);  //무게 저장
+     matrix.drawBitmap(0,0,initial[0], 8,9, 128); //웃는 표정으로 바꾸기
+ /*------------------sensor works------------------------22222222222222222222222222222222222---------------쓰레기 감지 안될때--*/
+    if(PGC[sel_trash] == Serial.read()){ //문법확인 분리수거 일치할때 *********
+        if(analogRead(_A0_LIGHT_ADC_GPIO) < 500){ //쓰레기 감지 안되면
+            digitalWrite(_D1_LED_GPIO, LOW);
+            led_val = digitalRead(_D1_LED_GPIO); //LED의 입력값 저장
+            Serial.println("led val");
+            Serial.println(led_val);
+            Serial.println("led old_val");
+            Serial.println(led_old_val);
+            delay(1500);       //LED 입력 감지를 위한 시간 여유
+            led_old_val = led_val;    //old_val에 val값 저장(버튼 눌림 감지는 매우 빠르게 일어나기 때문에 이 값은 거의 LOW로 항상 저장된다.)
+        }
+        else if(analogRead(_A0_LIGHT_ADC_GPIO) > 500){   //쓰레기 감지= led 켜짐//수정필요
+            R = analogRead(_A1_R_GPIO);  //무게 저장
 
-/* 수도코드
- * if(sel_trash == plastic)인데 플라스틱이 드러왔다? -> 행복 표시  
+        /* 수도코드
+         * if(sel_trash == plastic)인데 플라스틱이 드러왔다? -> 행복 표시  
                                플라스틱이 아닌게 들어왔다?-> 화난표시
-*/    
-    //블루투스와 wifi로 정보 전송
-    digitalWrite(_D1_LED_GPIO, HIGH);
-    delay(1500);
-    /*--------------------new yj-----count trash-----------------------------*/
-led_val = digitalRead(_D1_LED_GPIO); //LED의 입력값 저장
-Serial.println("trash_led val");
-Serial.println(led_val);
-Serial.println("trash_led old_val");
-Serial.println(led_old_val);
-    delay(100);       //LED 입력 감지를 위한 시간 여유
-    if((led_val == HIGH) && (led_old_val == LOW)){  //LED켜지면 쓰레기 들어간것임, 이전값이 LOW일 때(즉, 버튼이 눌렸을 때)
-      //led_state = 1 - led_state;      //state값 토글
-      Serial.println("pushed_success");
-      delay(100);
-      trash_count = trash_count + 1;
-      Serial.println("trash_count :");
-      Serial.println(trash_count);
-    }
-    led_old_val = led_val;    //old_val에 val값 저장(버튼 눌림 감지는 매우 빠르게 일어나기 때문에 이 값은 거의 LOW로 항상 저장된다.)
-    //if(led_state == 1){ //state 1상태일 때(Blink LED가 꺼져있을 때)
+        */    
+            digitalWrite(_D1_LED_GPIO, HIGH);
+            delay(1500);
+          /*--------------------new yj-----count trash-----------------------------*/
+            led_val = digitalRead(_D1_LED_GPIO); //LED의 입력값 저장
+            Serial.println("trash_led val");
+            Serial.println(led_val);
+            Serial.println("trash_led old_val");
+            Serial.println(led_old_val);
+            delay(100);       //LED 입력 감지를 위한 시간 여유
+            
+            if((led_val == HIGH) && (led_old_val == LOW)){  //LED켜지면 쓰레기 들어간것임, 이전값이 LOW일 때(즉, 버튼이 눌렸을 때)
+                Serial.println("pushed_success");
+                
+                delay(100);
+                
+                if(sel_trash == 0) pa += 1; //new
+                else if(sel_trash == 1) ga += 1; //new
+                else if(sel_trash == 2) ca += 1; //new
       
-      //led_state = 0;
-    //}    
-/*----------------------------------------------------------------------------*/
- }
-
- /*---------------------------------------------------*/
- }// button_status == 1
-
- /*--------------------------ble client-------------*/
- if(!digitalRead(_D0_BUTTON_GPIO) && button_status == 1){
-if (doConnect == true) {
-    if (connectToServer(*pServerAddress)) {
-      Serial.println("We are now connected to the BLE Server.");
-      connected = true;   //서버와 연결 성공했을 때 connected 변수 토글
-    } else {
-      Serial.println("We have failed to connect to the server");
+                Serial.println("trash_count : P, G, C");
+                Serial.println(pa);
+                Serial.println(ga);
+                Serial.println(ca);
+                button_status == 0; // 상태원상복구 -> p,g,c선택화면
+                
+                //Preprocessing();
+            }
+            led_old_val = led_val;    //old_val에 val값 저장(버튼 눌림 감지는 매우 빠르게 일어나기 때문에 이 값은 거의 LOW로 항상 저장된다.)
+        }
     }
-    doConnect = false;
-  }
-    
-  while (connected) {  
-    val = !digitalRead(_D0_BUTTON_GPIO); //버튼의 입력값 저장
-    delay(1000);       //버튼 입력 감지를 위한 시간 여유
-    if((val == HIGH)){  //버튼이 눌렸고, 이전값이 LOW일 때(즉, 버튼이 눌렸을 때)
-      Serial.println("pushed");
-      //delay(1000);
+    else{ //분리수거 일치하지 않을때 부저울리고 표정 
+      matrix.clear();
+      matrix.setCursor(1,1);
+      matrix.drawBitmap(0,0,initial[2], 8,9, 128); //화남
     }
-      itoa(trash_count, int_to_string, 10);
-      Serial.println("trash int: ");
-      Serial.println(trash_count);
-      Serial.println("trash string : ");
-      Serial.println(int_to_string);
-      pRemoteCharacteristic->writeValue(int_to_string[0]); //서버의 charactersitic값을 1로 변경(LED ON)
-      trash_count = 0;
-      int_to_string[0] = '0';
-      delay(100); //여기는 반복되는지 확인용도
-      pRemoteCharacteristic->writeValue("0"); //반복되는지 확인용도
-      break;
-  }  
-  button_status = 0;
- }
+}
+/*------------------------------------------------------111111111111111111111111111-------------------------------------button_status == 1 end*/
 
- /*----------------------------------------*/
 delay(500);
 }
