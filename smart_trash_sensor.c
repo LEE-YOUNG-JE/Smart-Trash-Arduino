@@ -67,25 +67,25 @@ const char* mqtt_server = "202.30.11.115";
 Adafruit_IS31FL3731 matrix = Adafruit_IS31FL3731(); //led 메트릭스 제어
 const char text[5]={'P','G','C'};
 static const uint8_t PROGMEM initial[5][9]={
- {B11111111,
-  B11111111,
-  B11111111,
-  B00011000,
-  B11111111,
-  B11111111,
-  B11000111,
-  B11111111,
-  B11111111},     //-_-
- 
- {B11111111,
-  B11111111,
-  B10111101,
-  B01011010,
-  B11111111,
-  B11111111,
-  B11011011,
+ {B00000000,
+  B00000000,
+  B00000000,
   B11100111,
-  B11111111},     //^^
+  B00000000,
+  B00000000,
+  B00111000,
+  B00000000,
+  B00000000},     //-_-
+ 
+ {B00000000,
+  B00000000,
+  B01000010,
+  B10100101,
+  B00000000,
+  B00000000,
+  B00100100,
+  B00011000,
+  B00000000},     //^^
  
  {B11111111,
   B01111110,
@@ -121,12 +121,14 @@ static const uint8_t PROGMEM initial[5][9]={
 
 void setup() {
 /*------------------sensor setup---------------------*/  
-
+  Serial.begin(115200);
+  pinMode(15,OUTPUT);//없어도됨 문자잘오는지 확인용
+ digitalWrite(15,LOW);//없어도됨 문자잘오는지 확인용
   pinMode(_D0_BUTTON_GPIO, INPUT);  // BUTTON 입력설정
   pinMode(_D1_LED_GPIO, OUTPUT);    // LED 출력설정
   digitalWrite(_D1_LED_GPIO, LOW);
   light=analogRead(_A0_LIGHT_ADC_GPIO); // 초기 조도값 설정
-
+  
   matrix.begin();
 /*---------------------------------------------------*/ 
 }
@@ -162,9 +164,12 @@ delay(500);
  if(button_status == 1) { //조건이 node-red webcam에서 인식한 것과 같을 때로 바꿔야됨, button_status ==1일때는 인식하기 직전이므로 무표정 아래 표정도 웃는 표정으로 바꾸고 무표정은 따로옮기기
      matrix.clear();
      matrix.setCursor(1,1);
-     matrix.drawBitmap(0,0,initial[0], 8,9, 128); //웃는 표정으로 바꾸기
+     matrix.drawBitmap(0,0,initial[0], 8,9, 128); //
  /*------------------sensor works------------------------22222222222222222222222222222222222---------------쓰레기 감지 안될때--*/
-    if(PGC[sel_trash] == Serial.read()){ //문법확인 분리수거 일치할때 *********
+    char io = Serial.read();
+    Serial.println(io);
+    if(PGC[sel_trash] == io){ //문법확인 분리수거 일치할때 *********
+       digitalWrite(15, HIGH);
         if(analogRead(_A0_LIGHT_ADC_GPIO) < 500){ //쓰레기 감지 안되면
             digitalWrite(_D1_LED_GPIO, LOW);
             led_val = digitalRead(_D1_LED_GPIO); //LED의 입력값 저장
@@ -212,11 +217,11 @@ delay(500);
             led_old_val = led_val;    //old_val에 val값 저장(버튼 눌림 감지는 매우 빠르게 일어나기 때문에 이 값은 거의 LOW로 항상 저장된다.)
         }
     }
-    else{ //분리수거 일치하지 않을때 부저울리고 표정 
+    /*else{ //분리수거 일치하지 않을때 부저울리고 표정 
       matrix.clear();
       matrix.setCursor(1,1);
       matrix.drawBitmap(0,0,initial[2], 8,9, 128); //화남
-    }
+    }*/
 }
 /*------------------------------------------------------111111111111111111111111111-------------------------------------button_status == 1 end*/
 
