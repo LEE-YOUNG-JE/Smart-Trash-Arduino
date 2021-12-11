@@ -1,9 +1,17 @@
+#include <WiFi.h>
+#include <PubSubClient.h>
+#define HICLOUD_API_KEY "2c6edde6db100ad83a509a6cea13a75ef97c3826"
+const char* ssid = "LAPTOPYJ";
+const char* password = "01034801271";
+const char* mqtt_server = "202.30.11.115";
+float val = 0;
+WiFiClient wifiClient;
+PubSubClient client(wifiClient);
 
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #define Button_GPIO 2       //I/O 큐브(버튼 모듈)에 연결한 디지털 핀
-#define HICLOUD_API_KEY "2c6edde6db100ad83a509a6cea13a75ef97c3826"
 /*------------------------------*/
 #include <Adafruit_GFX.h> 
 #include <Adafruit_IS31FL3731.h>
@@ -23,27 +31,23 @@ int all_state = 0; //0이면 처음 쓰레기 선택모드상태, 1이면 버튼
 int pa = 0; //amount of plastic amount
 int ga = 0; //amount of glass
 int ca = 0; //amount of can 
-int R=0;
+float R=0;
 int light=0;  //조도 값
 int sel_trash=0;
 int PGC[3] = {'P', 'G', 'C'};
 char choose_trash = '0';
 char web_trash = '0';
 int button_status=0;
-int val = 0;
 int old_val = 0;
 int state = 0;    
 int shadow_val = 1;
 int shadow_old_val = 1;
 int led_state = 0;            //사용할 변수 선언
-const char* ssid = "Bong";
-const char* password = "";
-const char* mqtt_server = "202.30.11.115";
 /*---------------------------------------------------------------------------*/
-/*void Preprocessing(){
-  if(sel_trash == plastic) pa+=R;     //여기서 카운트도 바로 할 수 있을듯
-  else if(sel_trash == can) ca+=R ;   //R은 현재 찍히고 있는 쓰레기의 무게
-  else if(sel_trash == glass) ga+=R;
+void Preprocessing(){
+  if(sel_trash == 0) pa+=R;     //여기서 카운트도 바로 할 수 있을듯
+  else if(sel_trash == 2) ca+=R ;   //R은 현재 찍히고 있는 쓰레기의 무게
+  else if(sel_trash == 1) ga+=R;
   char CO2String[8];
   char saving_energyString[8];
   char EPRString[8];
@@ -51,19 +55,21 @@ const char* mqtt_server = "202.30.11.115";
   float saving_energy = 24;  // 좀더...
   float EPR = (1000*0.807-(float)ca)*134*1.3425*(1.15*134*(1000*0.807-(float)ca)+1) +  
               (1000*0.774-(float)pa)*172*1.3425*(1.15*172*(1000*0.774-(float)pa)+1) +
-              (1000*0.711-(float)ga)*36*1.3425*(1.15*36*(1000*0.711-(float)ga)+1);//1톤 기준
+              (1000*0.711-(float)ga)*36*1.3425*(1.15*36*(1000*0.711-(float)ga)+1);//1톤 기준 재활용을 안하면 내야되는 벌금같은 거
 
 
 
 
 
-  dtostrf(CO2, 1, 2, CO2String);
+  dtostrf(R, 1, 2, CO2String);
   dtostrf(saving_energy, 1, 2, saving_energyString);
   dtostrf(EPR, 1, 2, EPRString);
-  client.publish("/component/bb0977da-f857-4748-b03f-2e52b5c4dfda/pub", CO2String); //cow
-  client.publish("/component/9ea73427-a417-42d3-8c46-d1281b5770ff/pub", saving_energyString); //saving_energy
-  client.publish("/component/b7057685-2240-45e3-b9dc-96d55d29ab75/pub", EPRString); //EPR
-}*/
+  client.publish("/component/b7d4ddb2-2e79-4a87-abde-9f31406bce7e/pub", CO2String); //cow
+  delay(3000);
+  client.publish("/component/3d532a74-ef24-4851-9d1b-2872708b489a/pub", saving_energyString); //saving_energy
+  delay(3000);
+  //client.publish("/component/b7057685-2240-45e3-b9dc-96d55d29ab75/pub", EPRString); //EPR
+}
 /*-------------------------------------------wifi function end--------------------------*/
 
 
@@ -123,6 +129,8 @@ static const uint8_t PROGMEM initial[5][9]={
  
 
 void setup() {
+  setup_wifi();
+client.setServer(mqtt_server, 1883);
 /*------------------sensor setup---------------------*/  
   Serial.begin(115200);
   pinMode(15,OUTPUT);//
@@ -135,7 +143,41 @@ void setup() {
   matrix.begin();
 /*---------------------------------------------------*/ 
 }
+void setup_wifi() {
+delay(10);
+Serial.println();
+Serial.print("Connecting to ");
+Serial.println(ssid);
+WiFi.begin(ssid, password);
+while (WiFi.status() != WL_CONNECTED) {
+delay(500);
+Serial.print(".");
+}
+Serial.println("");
+Serial.println("[LOG] WiFi connected");
+Serial.println("[LOG] IP address: ");
+Serial.println(WiFi.localIP());
+}
+void reconnect() {
+  while (!client.connected()) {
+    Serial.print("[LOG] Attempting MQTT connection...");
+    if (client.connect("kepler", HICLOUD_API_KEY , "")) {
+    Serial.println("[LOG] connected");
+    client.publish("/device/42eeebb0-ec07-4de9-bcd6-fb682bd99437/heartbeat", "");
+    } else {
+    Serial.print("[LOG] failed, rc=");
+    Serial.print(client.state());
+    Serial.println(" try again in 5 seconds");
+    delay(5000);
+    }
+  }
+}
 void loop() {
+   if (!client.connected()) {
+  reconnect();
+  }
+  client.loop();
+  
   matrix.setTextSize(1);
   matrix.setTextColor(100);
     /*---------------------터치센서를 이용하여 led 메트릭스 제어-----------------------------------------------------------loop-------------*/
@@ -232,7 +274,7 @@ if(all_state == 2){
                 delay(100);
                 digitalWrite(_D2_LED_GPIO, LOW);
                 delay(100);
-                //Preprocessing();
+                Preprocessing();
             }
             shadow_old_val = shadow_val;    //old_val에 val값 저장(버튼 눌림 감지는 매우 빠르게 일어나기 때문에 이 값은 거의 LOW로 항상 저장된다.)
         }
