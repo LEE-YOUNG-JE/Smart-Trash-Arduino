@@ -222,7 +222,7 @@ void loop() {
     char t_String[8];
     dtostrf(t, 6, 4, t_String);
     client.publish("/component/8ef61501-a4ac-4df4-a073-ae91b58b7437/pub", t_String); //온도를 cloud에 전송
-    delay(1000);
+    delay(3000);
     all_state = 1;  //상태 1로 변화
   }
 
@@ -300,8 +300,10 @@ if(all_state == 2){ //쓰레기통이 열린상태 -> 쓰레기 넣기
                 R_all = R_all + R_float;
                 dtostrf(R_all, 6, 4, R_String);
                 delay(1000);
+                flag_e = 1;
                 client.publish("/component/ef2e5862-8b1a-45f0-b221-b4ebab7083d8/pub", R_String); //string 무게
                 delay(1000);
+                flag_e = 1;
                 digitalWrite(_D2_LED_GPIO, HIGH);
                 delay(100);
                 digitalWrite(_D2_LED_GPIO, LOW);
