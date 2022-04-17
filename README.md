@@ -1,4 +1,6 @@
 # Smart-Trash-Arduino
+# 활용 tool
+Kepler-ESP-A board 2개, Arduino, C
 
 # 설계 내용
 일반적인 분리수거장에 스마트 iot 기술을 접목시켜 분리수거의 정확도를 높이고 에너지 절감효과를 보여줌으로써 재활용 하는 것을 격려 할 수 있다. 
