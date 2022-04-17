@@ -3,7 +3,9 @@
 설계 내용
 sensor Board(smart trash can) HW
 
+
 a. IO cube
+
 	D0:버튼
 	D2:LED
 	A0:조도센서
