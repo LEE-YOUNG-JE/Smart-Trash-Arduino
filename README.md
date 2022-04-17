@@ -1,7 +1,7 @@
 # Smart-Trash-Arduino
 
 설계 내용
-##sensor Board(smart trash can) HW
+## sensor Board(smart trash can) HW
 
 
 a. IO cube
@@ -23,14 +23,21 @@ f. GPIO 15번 핀
 g. wifi module
 
 
-##main Board(분리수거장 관리 보드) HW
+## main Board(분리수거장 관리 보드) HW
 
 a. real cube
+
 	- 온습도, 압력 센서
-	- 마이크 센서	
+	- 마이크 센서
+	
 b. 부저
+
 c. led matrix
+
 d. RGB led
+
 e. GPIO 15번 핀
+
 f. Bluetooth module
+
 g. Serial port
