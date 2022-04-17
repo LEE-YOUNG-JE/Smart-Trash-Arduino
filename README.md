@@ -55,7 +55,7 @@ g. Serial port
 ## sensor Board(smart trash can) SW
 
 
-쓰레기선택 모드일 때 왼쪽을 누르면 P->G->C->P 순으로 상태 변화
+쓰레기선택 모드일 때 왼쪽을 누르면 P->G->C->P 순으로 상태 변화(p 페트병, G : 유리병, C : 캔)
 
 쓰레기선택 모드일 때 오른쪽을 누르면 P->C->G->P 순으로 상태 변화
 
